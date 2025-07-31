@@ -192,17 +192,60 @@ window.addEventListener("load", function() {
 });
 
 function setupEventListeners() {
+  console.log("Setting up event listeners...");
+  
   var fileInput = document.getElementById("fileInput");
   var uploadArea = document.querySelector(".upload-area");
   var selectBtn = document.getElementById("selectBtn");
   
-  function openFileDialog() { fileInput.click(); }
-  uploadArea.addEventListener("click", openFileDialog);
-  selectBtn.addEventListener("click", openFileDialog);
+  console.log("Elements found:", {
+    fileInput: !!fileInput,
+    uploadArea: !!uploadArea,
+    selectBtn: !!selectBtn
+  });
+  
+  if (!fileInput) {
+    console.error("fileInput element not found!");
+    return;
+  }
+  
+  function openFileDialog() { 
+    console.log("Opening file dialog...");
+    fileInput.click(); 
+  }
+  
+  if (uploadArea) {
+    uploadArea.addEventListener("click", openFileDialog);
+    console.log("Upload area click listener added");
+  }
+  
+  if (selectBtn) {
+    selectBtn.addEventListener("click", openFileDialog);
+    console.log("Select button click listener added");
+  }
   
   fileInput.addEventListener("change", function(e) {
+    console.log("File input change event listener added");
+  });
+  
+  // Test function to verify file input works
+  window.testFileInput = function() {
+    console.log("Testing file input...");
+    if (fileInput) {
+      fileInput.click();
+      console.log("File input clicked");
+    } else {
+      console.error("File input not available");
+    }
+  };
+  
+  fileInput.addEventListener("change", function(e) {
+    console.log("File input change event triggered");
     var file = e.target.files[0];
-    if (!file) return;
+    if (!file) {
+      console.log("No file selected");
+      return;
+    }
     
     console.log("File selected:", file.name, "Size:", file.size, "Type:", file.type);
     currentFileName = file.name;
