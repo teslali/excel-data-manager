@@ -277,7 +277,7 @@ function parseCSV(csvText) {
   console.log("Starting CSV parse...");
   var startTime = performance.now();
   
-  var lines = csvText.split("\\n");
+  var lines = csvText.split("\n");
   var cleanLines = [];
   
   for (var i = 0; i < lines.length; i++) {
@@ -990,7 +990,7 @@ function exportData() {
     return; 
   }
   
-  var csvContent = headers.join(",") + ",Notlar,Fotoğraf\\n";
+  var csvContent = headers.join(",") + ",Notlar,Fotoğraf\n";
   for (var i = 0; i < allData.length; i++) {
     var note = memberNotes[i] || "";
     var hasPhoto = memberPhotos[i] ? "Var" : "Yok";
@@ -1003,7 +1003,7 @@ function exportData() {
       if (j > 0) csvRow += ",";
       csvRow += '"' + (rowWithNote[j] || "").replace(/"/g, '""') + '"';
     }
-    csvContent += csvRow + "\\n";
+    csvContent += csvRow + "\n";
   }
   
   var blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
