@@ -203,10 +203,25 @@ function setupEventListeners() {
   fileInput.addEventListener("change", function(e) {
     var file = e.target.files[0];
     if (!file) return;
+    
+    console.log("File selected:", file.name, "Size:", file.size, "Type:", file.type);
     currentFileName = file.name;
     updateCurrentFileDisplay();
+    
     var reader = new FileReader();
-    reader.onload = function(event) { parseCSV(event.target.result); };
+    reader.onload = function(event) { 
+      console.log("File read complete, starting parse...");
+      try {
+        parseCSV(event.target.result); 
+      } catch (error) {
+        console.error("Error parsing CSV:", error);
+        alert("❌ CSV dosyası yüklenirken hata oluştu: " + error.message);
+      }
+    };
+    reader.onerror = function(error) {
+      console.error("File reading error:", error);
+      alert("❌ Dosya okuma hatası!");
+    };
     reader.readAsText(file, "UTF-8");
   });
   
@@ -273,11 +288,53 @@ function updateCurrentFileDisplay() {
   }
 }
 
+function parseCSVLine(line) {
+  var result = [];
+  var current = '';
+  var inQuotes = false;
+  
+  for (var i = 0; i < line.length; i++) {
+    var char = line[i];
+    
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        // Handle escaped quotes
+        current += '"';
+        i++; // Skip next quote
+      } else {
+        // Toggle quote state
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      // Field separator outside quotes
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  
+  // Add the last field
+  result.push(current.trim());
+  
+  return result;
+}
+
 function parseCSV(csvText) {
   console.log("Starting CSV parse...");
   var startTime = performance.now();
   
+  if (!csvText || csvText.trim() === "") {
+    alert("❌ Dosya boş veya okunamadı!");
+    return;
+  }
+  
+  console.log("CSV text length:", csvText.length);
+  console.log("First 200 characters:", csvText.substring(0, 200));
+  
   var lines = csvText.split("\n");
+  console.log("Total lines after split:", lines.length);
+  
   var cleanLines = [];
   
   for (var i = 0; i < lines.length; i++) {
@@ -287,29 +344,38 @@ function parseCSV(csvText) {
     }
   }
   
+  console.log("Clean lines count:", cleanLines.length);
+  
   if (cleanLines.length === 0) { 
-    alert("Dosya boş!"); 
+    alert("❌ Dosyada geçerli veri bulunamadı!"); 
     return; 
   }
   
-  headers = cleanLines[0].split(",");
-  for (var i = 0; i < headers.length; i++) {
-    headers[i] = headers[i].trim().replace(/^"|"$/g, "");
+  // Parse header row
+  console.log("Parsing headers from:", cleanLines[0]);
+  headers = parseCSVLine(cleanLines[0]);
+  console.log("Parsed headers:", headers);
+  
+  if (headers.length === 0) {
+    alert("❌ CSV başlık satırı bulunamadı!");
+    return;
   }
   
   allData = [];
   allData.length = cleanLines.length - 1;
   var dataIndex = 0;
   
+  // Parse data rows
   for (var i = 1; i < cleanLines.length; i++) {
-    var row = cleanLines[i].split(",");
-    var cleanRow = new Array(headers.length); // Ensure row has same length as headers
+    console.log("Parsing row", i, ":", cleanLines[i].substring(0, 100));
+    var row = parseCSVLine(cleanLines[i]);
+    var cleanRow = new Array(headers.length);
     var hasData = false;
     
     for (var j = 0; j < headers.length; j++) {
       var cell = "";
       if (j < row.length) {
-        cell = row[j].trim().replace(/^"|"$/g, "");
+        cell = row[j] || "";
       }
       cleanRow[j] = cell;
       if (cell && !hasData) { 
@@ -319,40 +385,59 @@ function parseCSV(csvText) {
     
     if (hasData) { 
       allData[dataIndex++] = cleanRow;
+      console.log("Added row", dataIndex - 1, ":", cleanRow.slice(0, 3));
     }
   }
   
   allData.length = dataIndex;
+  console.log("Final data array length:", allData.length);
   
   if (allData.length === 0) { 
-    alert("Dosyada veri bulunamadı!"); 
+    alert("❌ Dosyada geçerli veri bulunamadı!"); 
     return; 
   }
   
-  console.log("CSV parsed in", (performance.now() - startTime).toFixed(2), "ms");
+  console.log("CSV parsed successfully in", (performance.now() - startTime).toFixed(2), "ms");
+  console.log("Headers:", headers);
+  console.log("First row data:", allData[0]);
   
-  filteredData = allData.slice();
-  displayTable();
-  populateFilterOptions();
-  document.getElementById("dataSection").style.display = "block";
-  
-  if (!memberNotes || Object.keys(memberNotes).length === 0) {
-    memberNotes = {};
-    memberPhotos = {};
+  try {
+    filteredData = allData.slice();
+    displayTable();
+    populateFilterOptions();
+    document.getElementById("dataSection").style.display = "block";
+    
+    if (!memberNotes || Object.keys(memberNotes).length === 0) {
+      memberNotes = {};
+      memberPhotos = {};
+    }
+    
+    alert("✅ " + allData.length + " kayıt başarıyla yüklendi!");
+    updateCounts();
+    saveCurrentWork();
+    console.log("CSV loading completed successfully!");
+  } catch (error) {
+    console.error("Error in post-processing:", error);
+    alert("❌ Veri işleme sırasında hata oluştu: " + error.message);
   }
-  
-  alert(allData.length + " kayıt yüklendi!");
-  updateCounts();
-  saveCurrentWork();
 }
 
 function displayTable() {
+  console.log("Starting displayTable with", filteredData.length, "rows");
+  var startTime = performance.now();
+  
   var tableHead = document.getElementById("tableHead");
   var tableBody = document.getElementById("tableBody");
+  
+  if (!tableHead || !tableBody) {
+    console.error("Table elements not found!");
+    return;
+  }
   
   tableHead.innerHTML = "";
   tableBody.innerHTML = "";
   
+  // Create header
   var headerRow = document.createElement("tr");
   for (var i = 0; i < headers.length; i++) {
     var th = document.createElement("th");
@@ -364,8 +449,10 @@ function displayTable() {
   headerRow.appendChild(actionTh);
   tableHead.appendChild(headerRow);
   
+  // Create rows with performance optimization
   var fragment = document.createDocumentFragment();
   var maxRows = Math.min(filteredData.length, displayedRows);
+  console.log("Displaying", maxRows, "rows out of", filteredData.length);
   
   for (var i = 0; i < maxRows; i++) {
     var tr = document.createElement("tr");
@@ -401,6 +488,7 @@ function displayTable() {
   }
   
   tableBody.appendChild(fragment);
+  console.log("Table rendering completed in", (performance.now() - startTime).toFixed(2), "ms");
   
   if (filteredData.length > displayedRows) {
     var tr = document.createElement("tr");
