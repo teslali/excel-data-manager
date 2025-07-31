@@ -1,0 +1,79 @@
+{
+  "name": "excel-data-manager",
+  "version": "1.0.0",
+  "description": "Excel Veri Yöneticisi - Excel dosyalarını yönetmek için gelişmiş araç",
+  "main": "./main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build-win": "electron-builder --win",
+    "build-win-portable": "electron-builder --win portable",
+    "build-win-installer": "electron-builder --win nsis",
+    "dist": "npm run build",
+    "pack": "electron-builder --dir",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "build": {
+    "appId": "com.excelmanager.app",
+    "productName": "Excel Veri Yöneticisi",
+    "copyright": "Copyright © 2025 Excel Veri Yöneticisi",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable", 
+          "arch": ["x64"]
+        }
+      ],
+      "requestedExecutionLevel": "asInvoker",
+      "publisherName": "Excel Veri Yöneticisi",
+      "verifyUpdateCodeSignature": false,
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "sign": null
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Excel Veri Yöneticisi"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.${ext}"
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  },
+  "author": {
+    "name": "Excel Veri Yöneticisi",
+    "email": "info@excelmanager.com"
+  },
+  "homepage": ".",
+  "keywords": [
+    "excel",
+    "data", 
+    "manager",
+    "veri",
+    "yönetici",
+    "turkish"
+  ]
+}
