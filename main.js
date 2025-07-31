@@ -63,6 +63,7 @@ body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667e
 .member-detail-item { margin-bottom: 15px; padding: 12px; background: #f8fafc; border-radius: 6px; border-left: 4px solid #2563eb; }
 .member-detail-item.empty { background: #fef3c7; border-left-color: #f59e0b; }
 .member-detail-item.edit-mode { background: #fff3cd; border-left-color: #ffc107; }
+.error-message { padding: 20px; background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 6px; margin: 10px 0; text-align: center; font-weight: bold; }
 .editable-field { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .editable-input { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; min-height: 20px; }
 .editable-input:focus { border-color: #2563eb; outline: none; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1); }
@@ -175,6 +176,16 @@ var rowIncrement = 500;
 
 window.addEventListener("load", function() {
   console.log("App started");
+  
+  // Initialize data structures if they don't exist
+  if (typeof allData === 'undefined') allData = [];
+  if (typeof headers === 'undefined') headers = [];
+  if (typeof memberNotes === 'undefined') memberNotes = {};
+  if (typeof memberPhotos === 'undefined') memberPhotos = {};
+  if (typeof filteredData === 'undefined') filteredData = [];
+  
+  // Validate data integrity on startup
+  validateDataIntegrity();
   setupEventListeners();
   checkStatus();
   loadSavedData();
@@ -490,16 +501,37 @@ function searchAndFilter() {
 
 function showMemberDetails(rowData) {
   selectedMemberIndex = -1;
+  
+  // Validate input
+  if (!Array.isArray(rowData)) {
+    console.error("Invalid rowData passed to showMemberDetails:", rowData);
+    alert("❌ Hata: Geçersiz üye verisi!");
+    return;
+  }
+  
+  // Find the member index
   for (var i = 0; i < allData.length; i++) {
-    if (JSON.stringify(allData[i]) === JSON.stringify(rowData)) {
+    if (Array.isArray(allData[i]) && JSON.stringify(allData[i]) === JSON.stringify(rowData)) {
       selectedMemberIndex = i; 
       break;
     }
   }
   
-  originalMemberData = JSON.parse(JSON.stringify(rowData));
-  isEditMode = false;
-  displayMemberDetails();
+  // Validate that member was found
+  if (selectedMemberIndex < 0) {
+    console.error("Member not found in allData:", rowData);
+    alert("❌ Hata: Üye bulunamadı!");
+    return;
+  }
+  
+  try {
+    originalMemberData = JSON.parse(JSON.stringify(rowData));
+    isEditMode = false;
+    displayMemberDetails();
+  } catch (error) {
+    console.error("Error in showMemberDetails:", error);
+    alert("❌ Hata: Üye detayları gösterilirken hata oluştu!");
+  }
   
   if (memberNotes[selectedMemberIndex] === undefined) {
     memberNotes[selectedMemberIndex] = "";
@@ -528,7 +560,23 @@ function showMemberDetails(rowData) {
 // ÖNEMLİ DEĞİŞİKLİK: Boş alanları da göster ve düzenleme işlevini düzelt
 function displayMemberDetails() {
   var details = document.getElementById("memberDetails");
+  
+  // Validate selectedMemberIndex
+  if (selectedMemberIndex < 0 || selectedMemberIndex >= allData.length) {
+    console.error("Invalid selectedMemberIndex in displayMemberDetails:", selectedMemberIndex);
+    details.innerHTML = '<div class="error-message">❌ Hata: Geçersiz üye seçimi!</div>';
+    return;
+  }
+  
   var rowData = allData[selectedMemberIndex];
+  
+  // Validate rowData
+  if (!Array.isArray(rowData)) {
+    console.error("Member data is not an array:", rowData);
+    details.innerHTML = '<div class="error-message">❌ Hata: Üye verisi geçersiz!</div>';
+    return;
+  }
+  
   var html = "";
   
   // TÜM sütunları göster (boş olanlar dahil)
@@ -587,35 +635,64 @@ function updateEditButton() {
 
 // ÖNEMLİ DEĞİŞİKLİK: Alan kaydetme işlevini düzelt
 function saveFieldEdit(fieldIndex) {
+  // Debug current state
+  debugMemberState();
+  
+  // Validate selectedMemberIndex
+  if (selectedMemberIndex < 0 || selectedMemberIndex >= allData.length) {
+    console.error("Invalid selectedMemberIndex:", selectedMemberIndex);
+    alert("❌ Hata: Geçersiz üye seçimi!");
+    return;
+  }
+  
+  // Validate fieldIndex
+  if (fieldIndex < 0 || fieldIndex >= headers.length) {
+    console.error("Invalid fieldIndex:", fieldIndex);
+    alert("❌ Hata: Geçersiz alan indeksi!");
+    return;
+  }
+  
   var fieldId = "field_" + fieldIndex;
   var input = document.getElementById(fieldId);
   
   if (!input) {
     console.error("Input field not found:", fieldId);
-    alert("Hata: Alan bulunamadı!");
+    alert("❌ Hata: Alan bulunamadı!");
     return;
   }
   
   var newValue = input.value.trim();
   
-  // Veriyi güncelle
-  allData[selectedMemberIndex][fieldIndex] = newValue;
-  
-  // Tabloyu güncelle
-  displayTable();
-  
-  // Üye detaylarını güncelle
-  displayMemberDetails();
-  
-  // Verileri kaydet
-  saveCurrentWork();
-  
-  // Başarı mesajı
-  var fieldName = headers[fieldIndex];
-  if (newValue) {
-    alert("✅ " + fieldName + " alanı güncellendi: " + newValue);
-  } else {
-    alert("✅ " + fieldName + " alanı temizlendi");
+  try {
+    // Ensure allData[selectedMemberIndex] is an array
+    if (!Array.isArray(allData[selectedMemberIndex])) {
+      console.error("Member data is not an array:", allData[selectedMemberIndex]);
+      alert("❌ Hata: Üye verisi geçersiz!");
+      return;
+    }
+    
+    // Veriyi güncelle
+    allData[selectedMemberIndex][fieldIndex] = newValue;
+    
+    // Tabloyu güncelle
+    displayTable();
+    
+    // Üye detaylarını güncelle
+    displayMemberDetails();
+    
+    // Verileri kaydet
+    saveCurrentWork();
+    
+    // Başarı mesajı
+    var fieldName = headers[fieldIndex];
+    if (newValue) {
+      alert("✅ " + fieldName + " alanı güncellendi: " + newValue);
+    } else {
+      alert("✅ " + fieldName + " alanı temizlendi");
+    }
+  } catch (error) {
+    console.error("Error saving field edit:", error);
+    alert("❌ Kayıt sırasında hata oluştu: " + error.message);
   }
 }
 
@@ -769,16 +846,84 @@ function saveAllData() {
   }
 }
 
+function debugMemberState() {
+  console.log("=== MEMBER DEBUG INFO ===");
+  console.log("selectedMemberIndex:", selectedMemberIndex);
+  console.log("allData.length:", allData ? allData.length : "undefined");
+  console.log("headers.length:", headers ? headers.length : "undefined");
+  console.log("isEditMode:", isEditMode);
+  console.log("memberNotes:", memberNotes);
+  console.log("memberPhotos:", memberPhotos);
+  
+  if (selectedMemberIndex >= 0 && allData && allData[selectedMemberIndex]) {
+    console.log("Selected member data:", allData[selectedMemberIndex]);
+    console.log("Selected member is array:", Array.isArray(allData[selectedMemberIndex]));
+  }
+  
+  console.log("=== END DEBUG INFO ===");
+}
+
+function validateDataIntegrity() {
+  try {
+    // Ensure allData is an array
+    if (!Array.isArray(allData)) {
+      console.warn("allData is not an array, initializing as empty array");
+      allData = [];
+      return false;
+    }
+    
+    // Ensure headers is an array
+    if (!Array.isArray(headers)) {
+      console.warn("headers is not an array, initializing as empty array");
+      headers = [];
+      return false;
+    }
+    
+    // Ensure memberNotes is an object
+    if (typeof memberNotes !== 'object' || memberNotes === null) {
+      console.warn("memberNotes is not an object, initializing as empty object");
+      memberNotes = {};
+    }
+    
+    // Ensure memberPhotos is an object
+    if (typeof memberPhotos !== 'object' || memberPhotos === null) {
+      console.warn("memberPhotos is not an object, initializing as empty object");
+      memberPhotos = {};
+    }
+    
+    // Validate each row in allData
+    for (var i = 0; i < allData.length; i++) {
+      if (!Array.isArray(allData[i])) {
+        console.warn("Row " + i + " is not an array, removing from data");
+        allData.splice(i, 1);
+        i--; // Adjust index after removal
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error validating data integrity:", error);
+    return false;
+  }
+}
+
 function saveCurrentWork() {
   try {
+    // Validate and repair data integrity
+    if (!validateDataIntegrity()) {
+      console.warn("Data integrity issues found and repaired");
+    }
+    
     localStorage.setItem("excel_data", JSON.stringify(allData));
     localStorage.setItem("excel_headers", JSON.stringify(headers));
-    localStorage.setItem("member_notes", JSON.stringify(memberNotes));
-    localStorage.setItem("member_photos", JSON.stringify(memberPhotos));
-    localStorage.setItem("current_filename", currentFileName);
+    localStorage.setItem("member_notes", JSON.stringify(memberNotes || {}));
+    localStorage.setItem("member_photos", JSON.stringify(memberPhotos || {}));
+    localStorage.setItem("current_filename", currentFileName || "");
     updateCounts();
   } catch (error) {
     console.error("Auto-save error:", error);
+    // Don't show alert for auto-save errors as they happen frequently
+    // Only log to console
   }
 }
 
@@ -797,6 +942,12 @@ function loadSavedData() {
       if (savedNotes) { memberNotes = JSON.parse(savedNotes); }
       if (savedPhotos) { memberPhotos = JSON.parse(savedPhotos); }
       if (savedFileName) { currentFileName = savedFileName; }
+      
+      // Validate data integrity after loading
+      if (!validateDataIntegrity()) {
+        console.warn("Data integrity issues found and repaired after loading");
+        saveCurrentWork(); // Save the repaired data
+      }
       
       displayTable();
       populateFilterOptions();
